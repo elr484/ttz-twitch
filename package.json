@@ -1,11 +1,12 @@
 {
   "name": "ttz-twitch",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "private": false,
   "description": "TTZ Twitch (Ad-Free) - Samsung TizenBrew Twitch TV client with built-in multi-proxy ad-free HLS engine & VAFT segment stripper.",
-  "packageType": "app",
+  "packageType": "mods",
   "appName": "TTZ Twitch (Ad-Free)",
-  "appPath": "tizenbrew/index.html",
+  "websiteURL": "http://192.168.50.2:5000/tv",
+  "main": "tizenbrew/noop.js",
   "keywords": [
     "twellie",
     "smart-tv",
