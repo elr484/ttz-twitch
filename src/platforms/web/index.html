@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Twellie — Web Preview</title>
+  <link rel="icon" href="assets/icon/favicon.ico" sizes="any">
+  <link rel="icon" href="assets/icon/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="assets/icon/favicon-16.png" type="image/png" sizes="16x16">
+  <link rel="apple-touch-icon" href="assets/icon/apple-touch-icon.png">
+  <link rel="stylesheet" href="ui/styles.css">
+  <style>
+    /* Web preview chrome overrides the TV-fullscreen assumptions in styles.css. */
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #3a3a42; }
+    body { position: relative; }
+    .page-title {
+      position: absolute; left: 0; right: 0; top: 14px; z-index: 3;
+      color: #efeff1; font: 700 18px/22px "Helvetica Neue", Arial, sans-serif;
+      text-align: center; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .repo-button {
+      position: absolute; top: 10px; right: 10px; z-index: 4; display: -webkit-box; display: flex;
+      -webkit-box-align: center; align-items: center; width: 102px; height: 30px;
+      box-sizing: border-box; padding: 0 10px; color: #24292f; background: #f6f8fa;
+      border: 1px solid #d0d7de; border-radius: 7px; text-decoration: none;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.26);
+      font: 700 12px/30px "Helvetica Neue", Arial, sans-serif; letter-spacing: 0;
+    }
+    .repo-button:hover { background: #ffffff; border-color: #8c959f; }
+    .repo-logo { width: 16px; height: 16px; margin-right: 7px; fill: currentColor; }
+    .repo-arrow { margin-left: 6px; color: #57606a; font-weight: 700; }
+    .tw-stage-wrap {
+      height: 100%; box-sizing: border-box; overflow: hidden; padding: 16px;
+      display: -webkit-box; display: flex; -webkit-box-align: center; align-items: center;
+      -webkit-box-pack: center; justify-content: center; text-align: left;
+    }
+    .tv-frame {
+      position: relative; width: 1280px; height: 720px; margin: 0;
+      -webkit-box-flex: 0; flex: 0 0 auto;
+      overflow: hidden; border-radius: 10px; box-shadow: 0 16px 60px rgba(0,0,0,0.6);
+      background: #000;
+    }
+    #tw-video, #tw-embed, #app { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
+    #tw-video { background: #000; z-index: 0; }
+    #tw-embed { background: #000; z-index: 0; display: none; }
+    #tw-embed iframe { width: 100%; height: 100%; border: 0; display: block; }
+    #app { z-index: 1; pointer-events: none; }
+    .remote {
+      width: 138px; margin: 0 0 0 16px; color: #adadb8; font: 13px/1.5 "Helvetica Neue", Arial, sans-serif;
+      -webkit-box-flex: 0; flex: 0 0 138px; text-align: center;
+    }
+    .remote button {
+      width: 40px; height: 40px; margin: 3px; padding: 0; cursor: pointer;
+      box-sizing: border-box; line-height: 38px; text-align: center; vertical-align: top; white-space: nowrap;
+      background: #26262c; color: #efeff1; border: 1px solid #3a3a44; border-radius: 6px;
+      font-size: 13px;
+    }
+    .remote button:hover { background: #34343c; }
+    .remote .r { color: #bd6360; } .remote .g { color: #5f9a6a; }
+    .remote .y { color: #c0a05e; }
+    .remote .r, .remote .g, .remote .y { font-weight: 700; }
+    .remote-button-row { font-size: 0; line-height: 0; }
+    .remote-spacer {
+      display: inline-block; width: 40px; height: 40px; margin: 3px;
+      box-sizing: border-box; vertical-align: top;
+    }
+    .remote-row-spaced { margin-top: 8px; }
+    .keyboard-legend { margin-top: 12px; color: #9d9da9; font-size: 12px; }
+    .legend-separator {
+      width: 52px; height: 0; margin: 0 auto 15px;
+      border-top: 1px solid #4a4a55;
+    }
+    .legend-row { position: relative; height: 23px; margin-top: 4px; }
+    .legend-keys {
+      position: absolute; right: 50%; top: 0; margin-right: 6px;
+      text-align: right; white-space: nowrap;
+    }
+    .legend-key {
+      display: inline-block; color: #efeff1; font: inherit; font-weight: 700;
+      line-height: 20px; vertical-align: top;
+    }
+    .legend-keys .legend-key { margin-left: 6px; }
+    .legend-keys .legend-key:first-child { margin-left: 0; }
+    .legend-arrow { text-shadow: 0.45px 0 0 currentColor, -0.45px 0 0 currentColor; }
+    .legend-action {
+      position: absolute; left: 50%; top: 1px; margin-left: 6px;
+      text-align: left; white-space: nowrap;
+    }
+    @media (max-width: 700px) {
+      html, body {
+        height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto;
+        scrollbar-width: none;
+      }
+      html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; }
+      .page-title { font-size: 16px; line-height: 20px; text-align: left; }
+      .repo-button { width: 98px; padding: 0 8px; }
+      .repo-logo { margin-right: 6px; }
+      .repo-arrow { margin-left: 4px; }
+      .remote {
+        width: 100%; max-width: none; margin-left: 0; font-size: 13px;
+        -webkit-box-flex: 0; flex: 0 0 auto;
+      }
+      .remote-button-row {
+        display: -webkit-box; display: flex; -webkit-box-pack: center; justify-content: center;
+        gap: 8px; margin-top: 8px;
+      }
+      .remote-button-row:first-child { margin-top: 0; }
+      .remote button {
+        display: -webkit-inline-box; display: inline-flex; -webkit-box-align: center; align-items: center;
+        -webkit-box-pack: center; justify-content: center; width: calc((100% - 16px) / 3);
+        aspect-ratio: 1 / 1; height: auto; margin: 0; line-height: 1; font-size: 14px;
+      }
+      .remote-spacer {
+        display: block; width: calc((100% - 16px) / 3);
+        aspect-ratio: 1 / 1; height: auto; margin: 0;
+      }
+      .remote-row-spaced { margin-top: 12px; }
+      .remote-color-row { display: none; }
+      .keyboard-legend { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-title" id="tw-page-title">📺 Twellie Web Preview</div>
+  <a class="repo-button" id="tw-repo-button" href="https://github.com/nkatchik/smarttv-twitch" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-label="Open Twellie repository on GitHub">
+    <svg class="repo-logo" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.65 7.65 0 0 1 8 3.86c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"></path>
+    </svg>
+    <span>GitHub</span>
+    <span class="repo-arrow">↗</span>
+  </a>
+
+  <div class="tw-stage-wrap" id="tw-stage-wrap">
+    <div class="tv-frame" id="tw-frame">
+      <video id="tw-video" playsinline></video>
+      <div id="tw-embed"></div>
+      <div id="app"></div>
+    </div>
+
+    <div class="remote" id="tw-remote">
+      <div class="remote-button-row">
+        <button data-tvkey="BACK">Back</button>
+        <button data-tvkey="UP">▲</button>
+        <span class="remote-spacer" aria-hidden="true"></span>
+      </div>
+      <div class="remote-button-row">
+        <button data-tvkey="LEFT">◀</button>
+        <button data-tvkey="ENTER">OK</button>
+        <button data-tvkey="RIGHT">▶</button>
+      </div>
+      <div class="remote-button-row">
+        <span class="remote-spacer" aria-hidden="true"></span>
+        <button data-tvkey="DOWN">▼</button>
+        <span class="remote-spacer" aria-hidden="true"></span>
+      </div>
+      <div class="remote-button-row remote-row-spaced remote-color-row">
+        <button data-tvkey="RED" class="r">A</button>
+        <button data-tvkey="GREEN" class="g">B</button>
+        <button data-tvkey="YELLOW" class="y">C</button>
+      </div>
+      <div class="keyboard-legend">
+        <div class="legend-separator"></div>
+        <div class="legend-row">
+          <span class="legend-keys"><span class="legend-key legend-arrow">↑</span><span class="legend-key legend-arrow">↓</span><span class="legend-key legend-arrow">←</span><span class="legend-key legend-arrow">→</span></span>
+          <span class="legend-action">navigate</span>
+        </div>
+        <div class="legend-row">
+          <span class="legend-keys"><span class="legend-key">Enter</span></span>
+          <span class="legend-action">select</span>
+        </div>
+        <div class="legend-row">
+          <span class="legend-keys"><span class="legend-key">Backspace</span></span>
+          <span class="legend-action">back</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function (global) {
+      function setScale(el, scale) {
+        if (!el) { return; }
+        var value = scale === 1 ? '' : 'scale(' + scale + ')';
+        el.style.WebkitTransform = value;
+        el.style.transform = value;
+        el.style.WebkitTransformOrigin = 'left top';
+        el.style.transformOrigin = 'left top';
+      }
+
+      function readSafeAreaTop() {
+        var probe = global.document.getElementById('tw-safe-area-probe');
+        if (!probe) {
+          probe = global.document.createElement('div');
+          probe.id = 'tw-safe-area-probe';
+          probe.style.position = 'absolute';
+          probe.style.visibility = 'hidden';
+          probe.style.pointerEvents = 'none';
+          probe.style.width = '0';
+          probe.style.height = '0';
+          probe.style.overflow = 'hidden';
+          probe.style.paddingTop = 'env(safe-area-inset-top, 0px)';
+          global.document.body.appendChild(probe);
+        }
+        var value = parseFloat(global.getComputedStyle(probe).paddingTop);
+        return isNaN(value) ? 0 : value;
+      }
+
+      function fitWebPreview() {
+        var wrap = global.document.getElementById('tw-stage-wrap');
+        var frame = global.document.getElementById('tw-frame');
+        var remote = global.document.getElementById('tw-remote');
+        var title = global.document.getElementById('tw-page-title');
+        var repo = global.document.getElementById('tw-repo-button');
+        var video = global.document.getElementById('tw-video');
+        var embed = global.document.getElementById('tw-embed');
+        var app = global.document.getElementById('app');
+        if (!wrap || !frame || !remote) { return; }
+
+        var rawViewportWidth = global.innerWidth || 1280;
+        var rawViewportHeight = global.innerHeight || 720;
+        var compact = rawViewportWidth <= 700;
+        var minSpace = compact ? 6 : 16;
+        var surfaceInset = compact ? 10 : 0;
+        var safeAreaTop = compact ? readSafeAreaTop() : 0;
+        var compactTitleTop = compact ? Math.max(28, safeAreaTop + 10) : 14;
+        var minPageWidth = compact ? 320 : 960;
+        var minPageHeight = compact ? 420 : 500;
+        var viewportWidth = Math.max(rawViewportWidth, minPageWidth);
+        var viewportHeight = Math.max(rawViewportHeight, minPageHeight);
+        remote.style.display = '';
+        remote.style.width = '';
+        remote.style.marginTop = compact ? '14px' : '0';
+        var remoteWidth = compact ? 0 : remote.offsetWidth;
+        var titleHeight = title ? title.offsetHeight : 0;
+        var repoHeight = repo ? repo.offsetHeight : 0;
+        var hasTitleRow = title || repo;
+        var titleGap = hasTitleRow ? 8 : 0;
+        var titleBand = hasTitleRow ? Math.max(titleHeight, repoHeight) + (titleGap * 2) : minSpace;
+        if (compact && hasTitleRow) {
+          titleBand = compactTitleTop + Math.max(titleHeight, repoHeight) + 18;
+        }
+        var widthScale = compact
+          ? (viewportWidth - (minSpace * 2) - (surfaceInset * 2)) / 1280
+          : (viewportWidth - remoteWidth - (minSpace * 3)) / 1280;
+        var heightScale = compact
+          ? (viewportHeight - titleBand - minSpace) / 720
+          : (viewportHeight - (titleBand * 2)) / 720;
+        var scale = Math.min(1, widthScale, heightScale);
+        if (scale < 0.05) { scale = 0.05; }
+
+        var surfaceWidth = Math.round(1280 * scale);
+        var surfaceHeight = Math.round(720 * scale);
+        var frameWidth = surfaceWidth + (surfaceInset * 2);
+        var frameHeight = surfaceHeight + (surfaceInset * 2);
+        var space = compact ? minSpace : Math.floor((viewportWidth - frameWidth - remoteWidth) / 3);
+        if (space < minSpace) { space = minSpace; }
+
+        wrap.style.width = viewportWidth + 'px';
+        wrap.style.height = compact ? 'auto' : viewportHeight + 'px';
+        wrap.style.minHeight = compact ? viewportHeight + 'px' : '';
+        wrap.style.overflow = compact ? 'visible' : 'hidden';
+        wrap.style.padding = compact
+          ? titleBand + 'px ' + minSpace + 'px ' + minSpace + 'px'
+          : minSpace + 'px ' + space + 'px';
+        wrap.style.WebkitBoxOrient = compact ? 'vertical' : 'horizontal';
+        wrap.style.WebkitBoxDirection = 'normal';
+        wrap.style.flexDirection = compact ? 'column' : 'row';
+        wrap.style.WebkitBoxPack = compact ? 'start' : 'center';
+        wrap.style.justifyContent = compact ? 'flex-start' : 'center';
+        wrap.style.WebkitBoxAlign = 'center';
+        wrap.style.alignItems = 'center';
+        remote.style.marginLeft = space + 'px';
+        if (compact) {
+          remote.style.marginLeft = '0';
+          remote.style.width = frameWidth + 'px';
+        }
+        frame.style.width = frameWidth + 'px';
+        frame.style.height = frameHeight + 'px';
+        video.style.left = surfaceInset + 'px';
+        video.style.top = surfaceInset + 'px';
+        embed.style.left = surfaceInset + 'px';
+        embed.style.top = surfaceInset + 'px';
+        app.style.left = surfaceInset + 'px';
+        app.style.top = surfaceInset + 'px';
+        setScale(video, scale);
+        setScale(embed, scale);
+        setScale(app, scale);
+
+        if (hasTitleRow) {
+          if (compact) {
+            if (title) {
+              title.style.left = minSpace + 'px';
+              title.style.right = (repo ? (repo.offsetWidth + minSpace + 10) : minSpace) + 'px';
+              title.style.top = compactTitleTop + 'px';
+              title.style.textAlign = 'left';
+            }
+            if (repo) {
+              repo.style.top = (compactTitleTop - 4) + 'px';
+              repo.style.right = minSpace + 'px';
+              repo.style.left = '';
+            }
+            return;
+          }
+          var frameRect = frame.getBoundingClientRect();
+          if (title) {
+            title.style.left = '0';
+            title.style.right = '0';
+            title.style.textAlign = 'center';
+            title.style.top = Math.max(0, (frameRect.top - title.offsetHeight) / 2) + 'px';
+          }
+          if (repo) {
+            var titleTop = title ? parseFloat(title.style.top) : NaN;
+            if (isNaN(titleTop)) { titleTop = title ? title.getBoundingClientRect().top : minSpace; }
+            var repoTop = title ? titleTop + ((title.offsetHeight - repo.offsetHeight) / 2) : minSpace;
+            if (repoTop < 0) { repoTop = 0; }
+            repo.style.top = repoTop + 'px';
+            repo.style.right = repoTop + 'px';
+            repo.style.left = '';
+          }
+        }
+      }
+
+      if (global.document.readyState === 'loading') {
+        global.document.addEventListener('DOMContentLoaded', fitWebPreview, false);
+      } else {
+        fitWebPreview();
+      }
+      global.addEventListener('resize', fitWebPreview, false);
+    })(this);
+  </script>
+
+  <!-- hls.js powers playback in Chrome/Firefox; Safari uses native HLS. -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+  <script src="https://player.twitch.tv/js/embed/v1.js"></script>
+
+  <!-- core (load order matters: no bundler / ES modules) -->
+  <script src="core/polyfill.js"></script>
+  <script src="core/util.js"></script>
+  <script src="core/dom.js"></script>
+  <script src="core/qrcode.js"></script>
+  <script src="core/keys.js"></script>
+  <script src="core/config.js"></script>
+  <script src="core/i18n.js"></script>
+  <script src="core/http.js"></script>
+  <script src="core/storage.js"></script>
+  <script src="core/net.js"></script>
+  <script src="lang/en.js"></script>
+  <script src="lang/de.js"></script>
+  <script src="lang/es.js"></script>
+  <script src="lang/fr.js"></script>
+  <script src="lang/it.js"></script>
+  <script src="lang/nl.js"></script>
+  <script src="lang/pl.js"></script>
+  <script src="lang/pt-br.js"></script>
+  <script src="lang/ru.js"></script>
+  <script src="lang/sv.js"></script>
+  <script src="lang/tr.js"></script>
+  <script src="lang/uk.js"></script>
+  <script src="core/twitch/playlist.js"></script>
+  <script src="core/twitch/usher.js"></script>
+  <script src="core/twitch/gql.js"></script>
+  <script src="core/twitch/chat.js"></script>
+  <script src="core/twitch/helix.js"></script>
+  <script src="core/twitch/auth.js"></script>
+  <script src="core/twitch/api.js"></script>
+  <script src="core/scene-manager.js"></script>
+  <script src="core/scenes/browser-scene.js"></script>
+  <script src="core/scenes/channel-page-scene.js"></script>
+  <script src="core/scenes/channel-scene.js"></script>
+  <script src="core/scenes/channel-page-scene.js"></script>
+  <script src="core/scenes/login-scene.js"></script>
+  <script src="core/app.js"></script>
+
+  <!-- web platform adapter -->
+  <script src="platform/embed-player.js"></script>
+  <script src="platform/player.js"></script>
+  <script src="platform/keys.js"></script>
+  <script src="platform/system.js"></script>
+  <script src="platform/boot.js"></script>
+
+  <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "a5f74359765543169b50a06782a86074"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>

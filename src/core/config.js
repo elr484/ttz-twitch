@@ -1,0 +1,62 @@
+/*!
+ * core/config.js — runtime configuration.
+ *
+ * Talks to Twitch's public GraphQL directly (the Streamlink/yt-dlp approach):
+ * no secrets, no backend, no server. Every supported TV target reaches Twitch
+ * directly.
+ *
+ * A platform boot file may override any of these before TW.app.start().
+ */
+(function (global) {
+  'use strict';
+
+  var TW = global.TW;
+
+  TW.config = {
+    // The app's own product name. It is an unofficial viewer FOR Twitch, not
+    // affiliated with Twitch/Amazon — so it carries its own name and never the
+    // Twitch logo or brand. Change this one value to rebrand.
+    appName: 'TTZ Twitch',
+
+    // Ad-Free HLS Proxy cascade (Local PC server first, then EU/AS ad-exempt proxies, then direct VAFT fallback)
+    adFreeProxies: [
+      'http://192.168.50.2:5000/api/twitch/master/{channel}.m3u8',
+      'https://eu.luminous.dev/live/{channel}?allow_source=true&allow_audio_only=true&fast_bread=true&ext=.m3u8',
+      'https://eu2.luminous.dev/live/{channel}?allow_source=true&allow_audio_only=true&fast_bread=true&ext=.m3u8',
+      'https://as.luminous.dev/live/{channel}?allow_source=true&allow_audio_only=true&fast_bread=true&ext=.m3u8'
+    ],
+
+    api: {
+      // Public Twitch web Client-ID (same one the website and Streamlink use).
+      // Drives all anonymous traffic: GraphQL browsing, search and playback.
+      clientId: 'kimne78kx3ncx6brgo4mv6wki5h1ko',
+
+      // Login (followed channels) uses Twitch's OAuth Device Code flow, which the
+      // anonymous web Client-ID above cannot perform. This is *our* registered
+      // public Twitch app (dev.twitch.tv/console, device grant enabled), so users
+      // just approve a phone code and never type a Client-ID. Not a secret — a
+      // Client-ID rides in the clear on every request. Override it for local dev
+      // with the harness ?clientId= param (see src/platforms/web/boot.js).
+      userClientId: '8dcy6t9zgupyzueekq81g808x0fd9c',
+
+      gqlUrl: 'https://gql.twitch.tv/gql',
+      usherBase: 'https://usher.ttvnw.net/api/channel/hls/',
+      usherVodBase: 'https://usher.ttvnw.net/vod/'
+    },
+
+    // Grid layout. Twitch GraphQL caps connection `first` at 30 (infinite
+    // scroll fetches more on demand).
+    columns: 4,
+    pageSize: 30,
+
+    // Default + remembered quality label ('Auto', 'chunked'/source, '720p60'…).
+    defaultQuality: 'High',
+
+    // UI language; see lang/. Falls back to 'en'.
+    language: 'en',
+
+    // Logical screen the layout is authored against. Platform pages may scale
+    // the DOM to the panel; native players translate these coordinates.
+    screen: { width: 1280, height: 720 }
+  };
+})(this);

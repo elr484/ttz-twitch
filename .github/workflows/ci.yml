@@ -1,0 +1,106 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit SHA or ref to validate.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Zero runtime deps, so no `npm ci` anywhere — just run the checks.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: ES5 / old-engine lint
+        run: npm run lint
+      - name: Brand guard (no Twitch trademark assets)
+        run: |
+          if [ -f src/assets/twitchlogo.png ]; then
+            echo "::error::Twitch glitch logo reintroduced (src/assets/twitchlogo.png)"; exit 1
+          fi
+          if grep -rIniE '9147ff|6441a5' src; then
+            echo "::error::Twitch brand purple reintroduced in src/"; exit 1
+          fi
+          echo "brand guard ok"
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Unit tests
+        run: npm test
+      - name: TizenBrew GitHub module manifest
+        run: npm run tizenbrew:check
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build all platforms + base release zips
+        run: |
+          npm run build
+          node tools/release.js
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: twellie-packages
+          path: dist/release/*.zip
+          if-no-files-found: error
+
+  # The desktop host bundles a pinned signed Node runtime per OS/arch, so prove
+  # both platform families package the targets we ship.
+  host-binary:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, targets: "macos-arm64 macos-x64", expected: 2 }
+          - { os: windows-latest, targets: "windows-x64 windows-x86", expected: 2 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build native host installer
+        timeout-minutes: 20
+        run: npm run host:package -- ${{ matrix.targets }}
+      - name: Assert a host package was produced
+        run: node -e "const f=require('fs').readdirSync('dist/release').filter(n=>n.startsWith('twellie-orsay-host-')); if(f.length!==Number(process.env.EXPECTED)){console.error('expected '+process.env.EXPECTED+' host packages, built '+f.length);process.exit(1)} console.log('built',f)"
+        env:
+          EXPECTED: ${{ matrix.expected }}

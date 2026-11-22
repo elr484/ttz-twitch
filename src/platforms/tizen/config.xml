@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tizen TV web app manifest (W3C widget schema) — Samsung 2015+ (J-series
+     onward). required_version 2.3 targets the widest range of Tizen TVs. -->
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:tizen="http://tizen.org/ns/widgets"
+        id="https://github.com/nkatchik/smarttv-twitch"
+        version="4.0.3" viewmodes="maximized">
+  <tizen:application id="Twellie001.Twellie" package="Twellie001" required_version="2.3"/>
+  <tizen:profile name="tv"/>
+
+  <name>Twellie</name>
+  <description>Twellie - independent client for watching Twitch streams on supported Samsung Tizen TVs.</description>
+  <author href="https://github.com/nkatchik">Nikita Katchik</author>
+  <content src="index.html"/>
+  <icon src="assets/icon/icon.png"/>
+
+  <!-- Widget Access Requests Policy: allow XHR, images, WebSockets and media
+       URLs to Twitch plus Twitch-selected CDN hosts. Dynamic playback and
+       thumbnail URLs make a broad allowlist the practical Tizen package rule. -->
+  <access origin="*" subdomains="true"></access>
+
+  <feature name="http://tizen.org/feature/screen.size.all"/>
+
+  <tizen:privilege name="http://tizen.org/privilege/internet"/>
+  <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+  <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+  <!-- Samsung Product API: AVPlay -->
+  <tizen:privilege name="http://developer.samsung.com/privilege/avplay"/>
+
+  <tizen:setting screen-orientation="landscape" context-menu="disable"
+                 background-support="disable" encryption="disable"
+                 install-location="auto" hwkey-event="enable"/>
+</widget>
