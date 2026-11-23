@@ -750,14 +750,120 @@
 
   P.resetChat = function () {
     this.chatMessages = [];
+    this.emoteMap = {};
+    this.emotesLoadedRoom = null;
     this.clearChat();
+  };
+
+  P.loadThirdPartyEmotes = function (roomId) {
+    if (!roomId || this.emotesLoadedRoom === roomId) { return; }
+    this.emotesLoadedRoom = roomId;
+    var self = this;
+    var map = this.emoteMap || (this.emoteMap = {});
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', 'http://192.168.50.2:5000/api/twitch/emotes/' + encodeURIComponent(roomId), true);
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
+          try {
+            var data = JSON.parse(xhr.responseText);
+            for (var k in data) {
+              if (data.hasOwnProperty(k)) { map[k] = data[k]; }
+            }
+            if (self.chatOn) { self.renderChatMessages(); }
+          } catch (e) {}
+        }
+      };
+      xhr.send();
+    } catch (e) {}
+  };
+
+  P.formatChatTextWithEmotes = function (text, emotesTag) {
+    var self = this;
+    var map = this.emoteMap || {};
+    var emoteStyle = 'height:22px;width:auto;vertical-align:middle;margin:-2px 2px 0 2px;display:inline-block;';
+
+    function replaceThirdParty(chunk) {
+      if (!chunk) { return ''; }
+      var words = chunk.split(' ');
+      var out = [];
+      for (var i = 0; i < words.length; i++) {
+        var w = words[i];
+        if (w && map[w]) {
+          out.push('<img src="' + map[w] + '" alt="' + dom.escape(w) + '" style="' + emoteStyle + '">');
+        } else {
+          out.push(dom.escape(w));
+        }
+      }
+      return out.join(' ');
+    }
+
+    if (!emotesTag) {
+      return replaceThirdParty(text);
+    }
+
+    // Parse Twitch IRC emotes tag: "id:start-end,start-end/id2:start-end"
+    var spans = [];
+    var groups = String(emotesTag).split('/');
+    for (var g = 0; g < groups.length; g++) {
+      var colon = groups[g].indexOf(':');
+      if (colon < 0) { continue; }
+      var eid = groups[g].substring(0, colon);
+      var ranges = groups[g].substring(colon + 1).split(',');
+      for (var r = 0; r < ranges.length; r++) {
+        var dash = ranges[r].indexOf('-');
+        if (dash < 0) { continue; }
+        var st = parseInt(ranges[r].substring(0, dash), 10);
+        var en = parseInt(ranges[r].substring(dash + 1), 10);
+        if (!isNaN(st) && !isNaN(en) && en >= st) {
+          spans.push({ id: eid, start: st, end: en });
+        }
+      }
+    }
+    if (!spans.length) {
+      return replaceThirdParty(text);
+    }
+    spans.sort(function (a, b) { return a.start - b.start; });
+
+    // Use Array.from-compatible code point slicing (Twitch IRC emote indices are Unicode code points)
+    var chars = [];
+    for (var ci = 0; ci < text.length; ci++) {
+      var code = text.charCodeAt(ci);
+      if (code >= 0xD800 && code <= 0xDBFF && ci + 1 < text.length) {
+        chars.push(text.substring(ci, ci + 2));
+        ci++;
+      } else {
+        chars.push(text.charAt(ci));
+      }
+    }
+
+    var html = '';
+    var cursor = 0;
+    for (var s = 0; s < spans.length; s++) {
+      var sp = spans[s];
+      if (sp.start < cursor || sp.start >= chars.length) { continue; }
+      if (sp.start > cursor) {
+        html += replaceThirdParty(chars.slice(cursor, sp.start).join(''));
+      }
+      var altTxt = chars.slice(sp.start, sp.end + 1).join('');
+      var imgUrl = 'https://static-cdn.jtvnw.net/emoticons/v2/' + encodeURIComponent(sp.id) + '/default/dark/2.0';
+      html += '<img src="' + imgUrl + '" alt="' + dom.escape(altTxt) + '" style="' + emoteStyle + '">';
+      cursor = sp.end + 1;
+    }
+    if (cursor < chars.length) {
+      html += replaceThirdParty(chars.slice(cursor).join(''));
+    }
+    return html;
   };
 
   P.startChatCapture = function () {
     if (!this.chatEnabled() || this.chatClient || !this.login || this.contentKind !== 'live') { return; }
     var self = this;
     this.chatClient = TW.twitch.chat.connect(this.login, {
-      onMessage: function (m) { self.addChatMessage(m); },
+      onMessage: function (m) {
+        if (m.roomId) { self.loadThirdPartyEmotes(m.roomId); }
+        self.addChatMessage(m);
+      },
       onError: function () {}
     });
   };
@@ -780,12 +886,36 @@
   P.appendChatLine = function (m) {
     var list = dom.get('tw-chat-list');
     if (!list) { return; }
-    var color = /^#[0-9a-fA-F]{6}$/.test(m.color) ? m.color : '#9b9bb0';
     var row = dom.create('div', 'tw-chat-row');
-    row.innerHTML =
-      '<b class="tw-chat-nick" style="color:' + color + '">' + dom.escape(m.nick) + '</b>' +
-      '<span class="tw-chat-sep">: </span>' +
-      '<span class="tw-chat-msg">' + dom.escape(m.text) + '</span>';
+    if (m.isNotice) {
+      row.style.background = 'rgba(145, 70, 255, 0.22)';
+      row.style.borderLeft = '3px solid #a970ff';
+      row.style.padding = '5px 8px';
+      row.style.borderRadius = '6px';
+      row.style.margin = '4px 0';
+      var extra = m.text
+        ? '<div style="margin-top:3px;color:#f1f5f9;">' + this.formatChatTextWithEmotes(m.text, m.emotes) + '</div>'
+        : '';
+      row.innerHTML =
+        '<div style="color:#d8b4fe;font-weight:700;font-size:13px;">' +
+          dom.escape((m.noticeIcon || '🎁 ') + (m.systemMsg || '')) +
+        '</div>' + extra;
+    } else {
+      var color = /^#[0-9a-fA-F]{6}$/.test(m.color) ? m.color : '#9b9bb0';
+      if (m.bits > 0 || m.highlighted) {
+        row.style.background = m.bits > 0 ? 'rgba(250, 204, 21, 0.16)' : 'rgba(145, 70, 255, 0.18)';
+        row.style.borderLeft = m.bits > 0 ? '3px solid #facc15' : '3px solid #a970ff';
+        row.style.padding = '4px 7px';
+        row.style.borderRadius = '6px';
+        row.style.margin = '3px 0';
+      }
+      var bitsBadge = m.bits > 0 ? '<span style="color:#facc15;font-weight:700;margin-right:4px;">💎' + m.bits + '</span>' : '';
+      row.innerHTML =
+        bitsBadge +
+        '<b class="tw-chat-nick" style="color:' + color + '">' + dom.escape(m.nick) + '</b>' +
+        '<span class="tw-chat-sep">: </span>' +
+        '<span class="tw-chat-msg">' + this.formatChatTextWithEmotes(m.text, m.emotes) + '</span>';
+    }
     list.appendChild(row);
     this.chatCount++;
     while (this.chatCount > CHAT_MAX && list.firstChild) { list.removeChild(list.firstChild); this.chatCount--; }

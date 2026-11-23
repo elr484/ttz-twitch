@@ -54,23 +54,25 @@
 
   function createAdFreePlaylistLoader(BaseLoader) {
     function AdFreePlaylistLoader(config) {
-      this.inner = new BaseLoader(config);
+      BaseLoader.call(this, config);
     }
-    AdFreePlaylistLoader.prototype.destroy = function () {
-      if (this.inner && this.inner.destroy) this.inner.destroy();
-    };
-    AdFreePlaylistLoader.prototype.abort = function () {
-      if (this.inner && this.inner.abort) this.inner.abort();
-    };
+    AdFreePlaylistLoader.prototype = Object.create(BaseLoader.prototype);
+    AdFreePlaylistLoader.prototype.constructor = AdFreePlaylistLoader;
     AdFreePlaylistLoader.prototype.load = function (context, config, callbacks) {
       var origSuccess = callbacks.onSuccess;
-      callbacks.onSuccess = function (response, stats, ctx, networkDetails) {
-        if (response && typeof response.data === 'string' && response.data.indexOf('#EXTM3U') >= 0) {
-          response.data = stripTwitchAdsFromM3u8(response.data);
-        }
-        origSuccess(response, stats, ctx, networkDetails);
+      var wrappedCallbacks = {
+        onSuccess: function (response, stats, ctx, networkDetails) {
+          if (response && typeof response.data === 'string' && response.data.indexOf('#EXTM3U') >= 0) {
+            response.data = stripTwitchAdsFromM3u8(response.data);
+          }
+          origSuccess(response, stats, ctx, networkDetails);
+        },
+        onError: callbacks.onError,
+        onTimeout: callbacks.onTimeout,
+        onProgress: callbacks.onProgress,
+        onAbort: callbacks.onAbort
       };
-      this.inner.load(context, config, callbacks);
+      return BaseLoader.prototype.load.call(this, context, config, wrappedCallbacks);
     };
     return AdFreePlaylistLoader;
   }
@@ -159,11 +161,7 @@
         }
 
         if (Hls && Hls.isSupported()) {
-          var hlsCfg = { lowLatencyMode: !isVod, startPosition: isVod ? 0 : -1 };
-          if (Hls.DefaultConfig && Hls.DefaultConfig.loader) {
-            hlsCfg.pLoader = createAdFreePlaylistLoader(Hls.DefaultConfig.loader);
-          }
-          hls = new Hls(hlsCfg);
+          hls = new Hls({ lowLatencyMode: !isVod, startPosition: isVod ? 0 : -1 });
           hls.on(Hls.Events.MANIFEST_PARSED, function () {
             // Twitch lists source first; present highest-first after "Auto".
             var levels = hls.levels.slice();

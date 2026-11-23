@@ -100,12 +100,38 @@
         var m = parseLine(line);
         if (m.command === 'PRIVMSG' && m.text != null) {
           if (cb.onMessage) {
+            var bits = m.tags.bits ? parseInt(m.tags.bits, 10) : 0;
+            var isHighlight = m.tags['msg-id'] === 'highlighted-message';
             cb.onMessage({
               nick: String(m.tags['display-name'] || m.nick || ''),
               color: m.tags.color || '',
               text: m.text,
+              emotes: m.tags.emotes || '',
+              roomId: m.tags['room-id'] || '',
+              bits: bits > 0 ? bits : 0,
+              highlighted: isHighlight,
               mod: m.tags.mod === '1',
               sub: m.tags.subscriber === '1'
+            });
+          }
+        } else if (m.command === 'USERNOTICE') {
+          if (cb.onMessage) {
+            var sysMsg = String(m.tags['system-msg'] || '').replace(/\\s/g, ' ').trim();
+            var msgId = String(m.tags['msg-id'] || '');
+            var icon = '🎉 ';
+            if (msgId.indexOf('gift') >= 0) { icon = '🎁 '; }
+            else if (msgId === 'raid') { icon = '🚀 '; }
+            else if (msgId === 'announcement') { icon = '📢 '; }
+            else if (msgId === 'sub' || msgId === 'resub') { icon = '⭐ '; }
+            cb.onMessage({
+              isNotice: true,
+              noticeIcon: icon,
+              systemMsg: sysMsg || (String(m.tags['display-name'] || m.nick || 'Someone') + ' triggered ' + msgId),
+              nick: String(m.tags['display-name'] || m.nick || ''),
+              color: m.tags.color || '#a970ff',
+              text: m.text || '',
+              emotes: m.tags.emotes || '',
+              roomId: m.tags['room-id'] || ''
             });
           }
         }
